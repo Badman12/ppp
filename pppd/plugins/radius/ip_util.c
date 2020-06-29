@@ -127,9 +127,11 @@ UINT4 rc_own_ipaddress(void)
 	static UINT4 this_host_ipaddr = 0;
 
 	if (!this_host_ipaddr) {
-		if ((this_host_ipaddr = rc_get_ipaddr (hostname)) == 0) {
-			error("rc_own_ipaddress: couldn't get own IP address");
-			return 0;
+		if ((this_host_ipaddr = rc_get_ipaddr (pptpd_bind_ip)) == 0) {
+			if ((this_host_ipaddr = rc_get_ipaddr (hostname)) == 0) {
+				error("rc_own_ipaddress: couldn't get own IP address");
+				return 0;
+			}
 		}
 	}
 

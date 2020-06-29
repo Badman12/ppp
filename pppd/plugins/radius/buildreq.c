@@ -34,20 +34,18 @@ int rc_get_nas_id(VALUE_PAIR **sendpairs)
 		if (rc_avpair_add(sendpairs, PW_NAS_IDENTIFIER, nasid, 0,
 				  VENDOR_NONE) == NULL)
 			return (ERROR_RC);
-
-		return (OK_RC);
 	  
-	} else {
-		/*
-		 * Fill in NAS-IP-Address
-		 */
-		if ((client_id = rc_own_ipaddress()) == 0)
-			return (ERROR_RC);
-
-		if (rc_avpair_add(sendpairs, PW_NAS_IP_ADDRESS, &client_id,
-				  0, VENDOR_NONE) == NULL)
-			return (ERROR_RC);
 	}
+ 
+	/*
+	* Fill in NAS-IP-Address
+	*/
+	if ((client_id = rc_own_ipaddress()) == 0)
+		return (ERROR_RC);
+
+	if (rc_avpair_add(sendpairs, PW_NAS_IP_ADDRESS, &client_id,
+				0, VENDOR_NONE) == NULL)
+		return (ERROR_RC);
 
 	return (OK_RC);
 }

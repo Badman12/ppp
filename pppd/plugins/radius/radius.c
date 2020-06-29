@@ -65,6 +65,9 @@ static option_t Options[] = {
 	"Set Radius NAS-Port attribute value via libradiusclient library", OPT_PRIO | 1 },
     { "map-to-ifname", o_bool, &portnummap,
 	"Set Radius NAS-Port attribute to number as in interface name (Default)", OPT_PRIOSUB | 0 },
+    { "pptpd-bind-ip", o_string, pptpd_bind_ip,
+        "Server IP address, usefull where PPTP listens on multiple interfaces.",
+        OPT_STATIC, NULL, MAXNAMELEN },
     { NULL }
 };
 

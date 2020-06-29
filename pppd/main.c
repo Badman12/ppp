@@ -129,6 +129,7 @@ struct channel *the_channel;
 
 char *progname;			/* Name of this program */
 char hostname[MAXNAMELEN];	/* Our hostname */
+char pptpd_bind_ip[MAXNAMELEN];
 static char pidfilename[MAXPATHLEN];	/* name of pid file */
 static char linkpidfile[MAXPATHLEN];	/* name of linkname pid file */
 char ppp_devnam[MAXPATHLEN];	/* name of PPP tty (maybe ttypx) */
@@ -319,6 +320,7 @@ main(argc, argv)
 	exit(1);
     }
     hostname[MAXNAMELEN-1] = 0;
+    pptpd_bind_ip[MAXNAMELEN -1] = 0;
 
     /* make sure we don't create world or group writable files. */
     umask(umask(0777) | 022);

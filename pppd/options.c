@@ -179,7 +179,7 @@ static void user_setprint __P((option_t *, printer_func, void *));
 static int user_unsetenv __P((char **));
 static void user_unsetprint __P((option_t *, printer_func, void *));
 
-static option_t *find_option __P((const char *name));
+static option_t *find_option __P((const char *name, int));
 static int process_option __P((option_t *, char *, char **));
 static int n_arguments __P((option_t *));
 static int number_option __P((char *, u_int32_t *, int));
@@ -390,30 +390,38 @@ parse_args(argc, argv)
     char **argv;
 {
     char *arg;
-    option_t *opt;
+    option_t *opt = NULL;
     int n;
 
     privileged_option = privileged;
     option_source = "command line";
     option_priority = OPRIO_CMDLINE;
     while (argc > 0) {
-	arg = *argv++;
-	--argc;
-	opt = find_option(arg);
-	if (opt == NULL) {
-	    option_error("unrecognized option '%s'", arg);
-	    usage();
-	    return 0;
-	}
-	n = n_arguments(opt);
-	if (argc < n) {
-	    option_error("too few parameters for option %s", arg);
-	    return 0;
-	}
-	if (!process_option(opt, arg, argv))
-	    return 0;
-	argc -= n;
-	argv += n;
+      int skip = 0;
+        arg = *argv++;
+        --argc;
+      do {
+          opt = find_option(arg, skip++);
+          if (opt == NULL) {
+            if (!skip) {
+              option_error("unrecognized option '%s'", arg);
+              usage();
+              return 0;
+            } else
+              break;
+          }
+
+        n = n_arguments(opt);
+        if (argc < n) {
+            option_error("too few parameters for option %s", arg);
+            return 0;
+        }
+        if (!process_option(opt, arg, argv))
+            return 0;
+      } while (1);
+
+	  argc -= n;
+      argv += n;
     }
     return 1;
 }
@@ -467,7 +475,7 @@ options_from_file(filename, must_exist, check_prot, priv)
 	option_source = "file";
     ret = 0;
     while (getword(f, cmd, &newline, filename)) {
-	opt = find_option(cmd);
+	opt = find_option(cmd, 0);
 	if (opt == NULL) {
 	    option_error("In file %s: unrecognized option '%s'",
 			 filename, cmd);
@@ -575,7 +583,7 @@ options_from_list(w, priv)
     option_priority = OPRIO_SECFILE;
 
     while (w != NULL) {
-	opt = find_option(w->word);
+	opt = find_option(w->word, 0);
 	if (opt == NULL) {
 	    option_error("In secrets file: unrecognized option '%s'",
 			 w->word);
@@ -628,34 +636,53 @@ match_option(name, opt, dowild)
  * This could be optimized by using a hash table.
  */
 static option_t *
-find_option(name)
+find_option(name, skip)
     const char *name;
+    int skip;
 {
-	option_t *opt;
-	struct option_list *list;
-	int i, dowild;
+  option_t *opt;
+  struct option_list *list;
+  int i, dowild;
 
-	for (dowild = 0; dowild <= 1; ++dowild) {
-		for (opt = general_options; opt->name != NULL; ++opt)
-			if (match_option(name, opt, dowild))
-				return opt;
-		for (opt = auth_options; opt->name != NULL; ++opt)
-			if (match_option(name, opt, dowild))
-				return opt;
-		for (list = extra_options; list != NULL; list = list->next)
-			for (opt = list->options; opt->name != NULL; ++opt)
-				if (match_option(name, opt, dowild))
-					return opt;
-		for (opt = the_channel->options; opt->name != NULL; ++opt)
-			if (match_option(name, opt, dowild))
-				return opt;
-		for (i = 0; protocols[i] != NULL; ++i)
-			if ((opt = protocols[i]->options) != NULL)
-				for (; opt->name != NULL; ++opt)
-					if (match_option(name, opt, dowild))
-						return opt;
-	}
-	return NULL;
+  for (dowild = 0; dowild <= 1; ++dowild) {
+    for (opt = general_options; opt->name != NULL; ++opt) {
+      if (match_option(name, opt, dowild)) {
+        if (skip--) continue;
+        return opt;
+      }
+
+    }
+    for (opt = auth_options; opt->name != NULL; ++opt) {
+      if (match_option(name, opt, dowild)) {
+        if (skip--) continue;
+        return opt;        
+      }
+    }
+    for (list = extra_options; list != NULL; list = list->next) {
+      for (opt = list->options; opt->name != NULL; ++opt) {
+        if (match_option(name, opt, dowild)) {
+          if (skip--) continue;
+          return opt;
+        }
+      }
+    }
+    for (opt = the_channel->options; opt->name != NULL; ++opt) {
+      if (match_option(name, opt, dowild)) {
+        if (skip--) continue;
+        return opt;        
+      }
+    }
+    for (i = 0; protocols[i] != NULL; ++i) {
+      if ((opt = protocols[i]->options) != NULL)
+        for (; opt->name != NULL; ++opt) {
+          if (match_option(name, opt, dowild)) {
+            if (skip--) continue;
+            return opt;
+          }
+        }
+    }
+  }
+  return NULL;
 }
 
 /*
@@ -868,7 +895,7 @@ override_value(option, priority, source)
 {
 	option_t *opt;
 
-	opt = find_option(option);
+	opt = find_option(option, 0);
 	if (opt == NULL)
 		return 0;
 	while (opt->flags & OPT_PRIOSUB)
@@ -1713,7 +1740,7 @@ user_setenv(argv)
 		break;
 	}
 	if (uep2 == NULL && !uep->ue_isset)
-	    find_option("unset")->flags |= OPT_NOPRINT;
+	    find_option("unset", 0)->flags |= OPT_NOPRINT;
 	free(uep->ue_value);
     }
     uep->ue_isset = 1;
@@ -1785,7 +1812,7 @@ user_unsetenv(argv)
 		break;
 	}
 	if (uep2 == NULL && uep->ue_isset)
-	    find_option("set")->flags |= OPT_NOPRINT;
+	    find_option("set", 0)->flags |= OPT_NOPRINT;
 	free(uep->ue_value);
     }
     uep->ue_isset = 0;
